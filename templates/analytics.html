@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - AI Exam Checker{% endblock %}
+
+{% block page_title %}Analytics Dashboard{% endblock %}
+{% block breadcrumb %}Analytics{% endblock %}
+
+{% block content %}
+<!-- Stats Overview -->
+<div class="row">
+    <div class="col-lg-4 col-6">
+        <div class="card stats-card bg-gradient-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-white-50 mb-0">Total Evaluations</p>
+                        <h2 class="mb-0 text-white">{{ total_exams }}</h2>
+                    </div>
+                    <div class="stats-icon bg-white text-primary">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-6">
+        <div class="card stats-card bg-gradient-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-white-50 mb-0">Average Marks</p>
+                        <h2 class="mb-0 text-white">{{ avg_marks }}%</h2>
+                    </div>
+                    <div class="stats-icon bg-white text-success">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 col-6">
+        <div class="card stats-card bg-gradient-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-white-50 mb-0">Average Similarity</p>
+                        <h2 class="mb-0 text-white">{{ avg_similarity }}%</h2>
+                    </div>
+                    <div class="stats-icon bg-white text-info">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mt-4">
+    <!-- Marks Distribution Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-pie me-2"></i>Marks Distribution
+                </h3>
+            </div>
+            <div class="card-body">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Student Performance Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-bar me-2"></i>Student Performance
+                </h3>
+            </div>
+            <div class="card-body">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Results Table -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-list me-2"></i>All Evaluation Results
+                </h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover text-nowrap">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                            <th><i class="fas fa-user me-1"></i>Student</th>
+                            <th><i class="fas fa-book me-1"></i>Exam</th>
+                            <th><i class="fas fa-percentage me-1"></i>Similarity</th>
+                            <th><i class="fas fa-star me-1"></i>Marks</th>
+                            <th><i class="fas fa-clock me-1"></i>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in all_results %}
+                        <tr>
+                            <td>{{ result.id }}</td>
+                            <td>{{ result.student_username }}</td>
+                            <td>{{ result.exam_name }}</td>
+                            <td>
+                                {% if result.similarity >= 80 %}
+                                <span class="badge bg-success">{{ result.similarity }}%</span>
+                                {% elif result.similarity >= 60 %}
+                                <span class="badge bg-warning">{{ result.similarity }}%</span>
+                                {% else %}
+                                <span class="badge bg-danger">{{ result.similarity }}%</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="progress progress-sm" style="width: 80px;">
+                                    <div class="progress-bar bg-{{ 'success' if result.marks >= 80 else 'warning' if result.marks >= 60 else 'danger' }}" 
+                                         style="width: {{ result.marks }}%"></div>
+                                </div>
+                                <small>{{ result.marks }}/100</small>
+                            </td>
+                            <td>{{ result.created_at }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                No evaluation data available yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Marks Distribution Chart
+    const distCtx = document.getElementById('distributionChart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ distribution_labels|tojson }},
+            datasets: [{
+                data: {{ distribution_data|tojson }},
+                backgroundColor: [
+                    '#10b981',
+                    '#3b82f6',
+                    '#8b5cf6',
+                    '#f59e0b',
+                    '#ef4444',
+                    '#6b7280'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                }
+            }
+        }
+    });
+    
+    // Student Performance Chart
+    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+    new Chart(perfCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ performance_labels|tojson }},
+            datasets: [{
+                label: 'Average Marks (%)',
+                data: {{ performance_data|tojson }},
+                backgroundColor: [
+                    'rgba(79, 70, 229, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(245, 158, 11, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(6, 182, 212, 0.8)'
+                ],
+                borderColor: [
+                    '#4f46e5',
+                    '#10b981',
+                    '#f59e0b',
+                    '#ef4444',
+                    '#06b6d4'
+                ],
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Dashboard - AI Exam Checker{% endblock %}
+
+{% block page_title %}Teacher Dashboard{% endblock %}
+{% block breadcrumb %}Evaluate Answers{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Evaluation Form -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-gradient-primary">
+                <h3 class="card-title text-white">
+                    <i class="fas fa-clipboard-check me-2"></i>Answer Evaluation
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="evaluationForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="exam_name" class="form-label">
+                                <i class="fas fa-book me-1"></i>Exam Name
+                            </label>
+                            <input type="text" class="form-control" id="exam_name" name="exam_name" 
+                                   placeholder="e.g., Mathematics Quiz 1" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="student_username" class="form-label">
+                                <i class="fas fa-user me-1"></i>Student Username
+                            </label>
+                            <input type="text" class="form-control" id="student_username" name="student_username" 
+                                   placeholder="Enter student username" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="correct_answer" class="form-label">
+                            <i class="fas fa-check-circle me-1"></i>Correct Answer
+                        </label>
+                        <textarea class="form-control" id="correct_answer" name="correct_answer" 
+                                  rows="4" placeholder="Enter the model/correct answer..." required></textarea>
+                        <small class="text-muted">The reference answer for evaluation</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="student_answer" class="form-label">
+                            <i class="fas fa-pen me-1"></i>Student Answer
+                        </label>
+                        <textarea class="form-control" id="student_answer" name="student_answer" 
+                                  rows="4" placeholder="Enter student's handwritten answer or paste text..."></textarea>
+                        <small class="text-muted">Enter the student's written answer text</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="answer_image" class="form-label">
+                            <i class="fas fa-image me-1"></i>Or Upload Answer Sheet Image (OCR)
+                        </label>
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="answer_image" name="answer_image" 
+                                   accept="image/*">
+                            <button type="button" class="btn btn-outline-secondary" onclick="extractTextFromImage()">
+                                <i class="fas fa-magic me-1"></i> Extract Text
+                            </button>
+                        </div>
+                        <small class="text-muted">Upload an image of the answer sheet to extract text using OCR</small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-robot me-2"></i>Evaluate with AI
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-redo me-1"></i>Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Result Display -->
+    <div class="col-lg-4">
+        {% if result %}
+        <div class="card bg-gradient-success">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-trophy fa-4x mb-3"></i>
+                <h3>Evaluation Complete!</h3>
+                <p class="mb-0">{{ exam_name }}</p>
+                <small>Student: {{ student_username }}</small>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h4 class="card-title">
+                    <i class="fas fa-chart-bar me-2"></i>Results
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="circular-progress" style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
+                        <svg viewBox="0 0 150 150" style="transform: rotate(-90deg);">
+                            <circle cx="75" cy="75" r="60" fill="none" stroke="#e9ecef" stroke-width="15"/>
+                            <circle cx="75" cy="75" r="60" fill="none" 
+                                    stroke="{{ '#10b981' if result.similarity_score >= 80 else '#f59e0b' if result.similarity_score >= 60 else '#ef4444' }}" 
+                                    stroke-width="15" stroke-dasharray="{{ (result.similarity_score * 3.77)|round|int }} 377" 
+                                    stroke-linecap="round"/>
+                        </svg>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                            <h2 class="mb-0">{{ result.similarity_score }}%</h2>
+                            <small class="text-muted">Similarity</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h3 class="mb-0 text-success">{{ result.marks }}</h3>
+                            <small class="text-muted">Marks Obtained</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h3 class="mb-0">{{ result.max_marks }}</h3>
+                            <small class="text-muted">Max Marks</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title">
+                    <i class="fas fa-align-left me-2"></i>Answer Comparison
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong><i class="fas fa-check text-success me-1"></i>Correct Answer:</strong>
+                    <p class="text-muted mb-0">{{ result.correct_answer }}</p>
+                </div>
+                <hr>
+                <div>
+                    <strong><i class="fas fa-pen text-primary me-1"></i>Student Answer:</strong>
+                    <p class="text-muted mb-0">{{ result.student_answer }}</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- Instructions Card -->
+        <div class="card">
+            <div class="card-header bg-info">
+                <h4 class="card-title text-white">
+                    <i class="fas fa-info-circle me-2"></i>How to Evaluate
+                </h4>
+            </div>
+            <div class="card-body">
+                <ol class="pl-3">
+                    <li class="mb-2">Enter the exam name</li>
+                    <li class="mb-2">Enter the student's username</li>
+                    <li class="mb-2">Enter the correct/model answer</li>
+                    <li class="mb-2">Enter the student's answer OR upload an answer sheet image</li>
+                    <li class="mb-0">Click "Evaluate with AI" to get the similarity score and marks</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-gradient-primary">
+                <h5 class="card-title text-white">
+                    <i class="fas fa-robot me-2"></i>AI Technology
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">This system uses:</p>
+                <ul class="mb-0">
+                    <li><strong>BERT (all-MiniLM-L6-v2)</strong> for semantic similarity</li>
+                    <li><strong>OCR (pytesseract)</strong> for text extraction from images</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function extractTextFromImage(event) {
+    const fileInput = document.getElementById('answer_image');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select an image file first.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Show loading
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Extracting...';
+    btn.disabled = true;
+    
+    fetch('{{ url_for("upload") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.text) {
+            const studentAnswer = document.getElementById('student_answer');
+            studentAnswer.value = data.text;
+            alert('Text extracted successfully!');
+        } else {
+            alert('Error: ' + (data.error || 'Failed to extract text'));
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error.message);
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}
